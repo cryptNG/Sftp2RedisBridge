@@ -1,0 +1,35 @@
+version: '3.4'
+
+services:
+
+
+  File2EventBridge:
+    image: ${DOCKER_REGISTRY-}sftp2redisbridge
+    build:
+      context: .
+      dockerfile: File2EventBridge/Dockerfile
+    environment:
+        - CONFIG_FILE=/var/mount/cfg/appsettings.json
+        - LOG4NET_CONFIG=/var/mount/cfg/log4net.xml
+    volumes:
+        - ./tooling/sftp2redisbridge/cfg:/var/mount/cfg
+        - ./tooling/sftp2redisbridge/keys:/var/mount/keys
+
+
+  redis:
+    image: redis:latest
+    command: redis-server --requirepass redis123
+    ports:
+        - 6379:6379
+
+
+  sftpserver:
+    environment:
+        - SFTP_USERS=anotherUser:test123:1001:111
+    image: atmoz/sftp
+    volumes:
+        - ./tooling/sftp_server/server_authorized_clients:/home/sftpUser/.ssh/keys/:ro
+        - ./tooling/sftp_server/data:/home/sftpUser/data
+    ports:
+        - "2222:22"
+    command: sftpUser::1000:777  

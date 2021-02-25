@@ -1,0 +1,5 @@
+version: '3.4'
+services:
+  File2EventBridge:
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
