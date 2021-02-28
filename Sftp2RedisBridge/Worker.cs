@@ -119,7 +119,8 @@ namespace Sftp2RedisBridge
 
                 log.Debug("Delaying " + _configuration["SftpConnection:PollingDelaySeconds"] + " seconds");
                 Thread.Sleep(Convert.ToInt32(_configuration["SftpConnection:PollingDelaySeconds"]) * 1000);
-                _remoteDirectory.Disconnect();
+                //Do not disconnec after each loop
+                //_remoteDirectory.Disconnect();
             }
         }
 
@@ -188,9 +189,18 @@ namespace Sftp2RedisBridge
                        
                     }
 
-                    if(fileToMove != null)
-                        _remoteDirectory.MoveFile(fileToMove, _configuration["SftpConnection:ErrorPath"]);
-                   
+                    try
+                    {
+                        if (fileToMove != null)
+                            _remoteDirectory.MoveFile(fileToMove, _configuration["SftpConnection:ErrorPath"]);
+                    }catch(SshException sshExc) when (sshExc.StackTrace.Contains("Renci.SshNet.Sftp.SftpSession.RequestRename"))
+                    {
+                        log.Warn($"Remote file for TUID {message.TransactionID} name {fileToMove} exists already in error path {_configuration["SftpConnection:ErrorPath"]}. Deleting source file.");
+                        _remoteDirectory.DeleteFile(fileToMove);
+                        log.Debug($"Remote origin file for TUID {message.TransactionID} name {fileToMove} deleted.");
+
+                    }
+
                     string errorFileNameKey = $"Error:{message.TransactionID}:Filename";
                     string errorFileContentKey = $"Error:{message.TransactionID}:File";
                   

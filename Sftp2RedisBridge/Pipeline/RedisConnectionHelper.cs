@@ -32,6 +32,6 @@ namespace Sftp2RedisBridge.Pipeline
             }
          
         }
-        public ConnectionMultiplexer Connection => _lazyConnection.Value;
+        public ConnectionMultiplexer Connection => _lazyConnection?.Value;
     }
 }

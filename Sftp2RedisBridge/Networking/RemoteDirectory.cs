@@ -47,6 +47,12 @@ namespace Sftp2RedisBridge.Networking
 
         public bool Connect()
         {
+            //Only connect if not connected
+            if(_server.Connected)
+            {
+                return true;
+            }
+
             log.Info("Connecting");
             _server.Connect();
            // UpdateFiles();

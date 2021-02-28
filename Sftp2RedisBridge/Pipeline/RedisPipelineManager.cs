@@ -33,6 +33,7 @@ namespace Sftp2RedisBridge.Pipeline
         private readonly IConfiguration _configuration;
         private readonly RedisConnectionHelper _connectionHelper;
         private readonly int _expiryTimeMilliSeconds;
+        private readonly int _waitTimeBeforeProcessPendingInMilliseconds;
         private readonly int _pollingIdleTimeMilliSeconds;
 
         private RedisDoneAction _doneCallbackHandler;
@@ -54,6 +55,7 @@ namespace Sftp2RedisBridge.Pipeline
             _errorStreamName = configuration["Redis:ErrorStreamName"]??"error";
             _keyValueStoreExpiry = Convert.ToInt32(_configuration["Redis:KeyValueStoreExpirySeconds"]) * 1000;
             _expiryTimeMilliSeconds = Convert.ToInt32(configuration["Redis:StreamExpiryTimeInSeconds"]) * 1000;
+            _waitTimeBeforeProcessPendingInMilliseconds = Convert.ToInt32(configuration["Redis:WaitToProcessPendingInSeconds"]??"10") * 1000;
             _pollingIdleTimeMilliSeconds = Convert.ToInt32(configuration["Redis:PollingIdleTimeSeconds"]) * 1000;
 
             //  someNullableObject?.SomeProperty??thisValueIfAllNull  (TEST ON INT)
@@ -88,6 +90,13 @@ namespace Sftp2RedisBridge.Pipeline
         {
             try
             {
+                //Only connect and try to recreate ConsumerGroup if has been disconnected or first connect
+                //handling not initialize _lazyConnection reference. Though IsConnected should work always
+                if (Cache?.IsConnected("any")??false)
+                {
+                    return true;
+                }
+
                 if (_connectionHelper.Connect())
                 {
                     if (Cache.IsConnected("any"))
@@ -426,7 +435,7 @@ namespace Sftp2RedisBridge.Pipeline
             }
         }
 
-        public IDatabase Cache => _connectionHelper.Connection.GetDatabase();
+        public IDatabase Cache => _connectionHelper.Connection?.GetDatabase();
 
         public string Get(string Key)
         {
@@ -493,9 +502,18 @@ namespace Sftp2RedisBridge.Pipeline
             {
                 try
                 {
-                    Initialize();
+                    if (DoneBackgroundWorker.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+
                     log.Debug("Listen DoneStream Idle: " + _pollingIdleTimeMilliSeconds);
                     Thread.Sleep(_pollingIdleTimeMilliSeconds);
+
+                    Initialize();
+                    
+
                     if (DoneBackgroundWorker.CancellationPending)
                     {
                         e.Cancel = true;
@@ -509,10 +527,10 @@ namespace Sftp2RedisBridge.Pipeline
                     {
                         log.Debug($"Found {pending.Count()} pending messages");
                         //IDLE TIME > THREAD WAIT TIME
-                        var pendingOrphaned = pending.Where(x => x.IdleTimeInMilliseconds > _expiryTimeMilliSeconds);
+                        var pendingOrphaned = pending.Where(x => x.IdleTimeInMilliseconds > _waitTimeBeforeProcessPendingInMilliseconds);
                         if (pendingOrphaned.Any())
                         {
-                            foreach (var inf in pending)
+                            foreach (var inf in pendingOrphaned)
                             {
                                 log.Debug("Found orphaned pending messages in doneStream.");
                                 log.Debug(
@@ -529,20 +547,21 @@ namespace Sftp2RedisBridge.Pipeline
                         currentMessages = Cache.StreamReadGroup(_doneStreamName, ConsumerGroupName, ConsumerName);
 
 
-                    if (currentMessages.Any())
-                    {
-                        log.Debug("CurrentMessages.Length: " + currentMessages.Length);
-                        var additionalUnclaimedEntries =
-                            Cache.StreamReadGroup(_doneStreamName, ConsumerGroupName, ConsumerName);
-                        log.Debug($"Found {additionalUnclaimedEntries.Length} additional entries to claim");
-                        foreach (var entry in additionalUnclaimedEntries)
-                            log.Debug(
-                                $"Adding EntryId: {entry.Id} Key: {entry.Values[0].Name} Value: {entry.Values[0].Value}");
+                    //Why this. Just get them in next loop
+                    //if (currentMessages.Any())
+                    //{
+                    //    log.Debug("CurrentMessages.Length: " + currentMessages.Length);
+                    //    var additionalUnclaimedEntries =
+                    //        Cache.StreamReadGroup(_doneStreamName, ConsumerGroupName, ConsumerName);
+                    //    log.Debug($"Found {additionalUnclaimedEntries.Length} additional entries to claim");
+                    //    foreach (var entry in additionalUnclaimedEntries)
+                    //        log.Debug(
+                    //            $"Adding EntryId: {entry.Id} Key: {entry.Values[0].Name} Value: {entry.Values[0].Value}");
 
-                        var bro = currentMessages.Concat(additionalUnclaimedEntries);
-                        _ = currentMessages.Concat(additionalUnclaimedEntries); //TODO: Check
-                        log.Debug("CurrentMessages.Length: " + currentMessages.Length);
-                    }
+                    //    var bro = currentMessages.Concat(additionalUnclaimedEntries);
+                    //    _ = currentMessages.Concat(additionalUnclaimedEntries); //TODO: Check
+                    //    log.Debug("CurrentMessages.Length: " + currentMessages.Length);
+                    //}
                 }
                 catch (Exception exception)
                 {
@@ -551,16 +570,29 @@ namespace Sftp2RedisBridge.Pipeline
                 
             } while (currentMessages.Length <= 0);
 
-            RedisValue[] idsForCurrentMessages = currentMessages.Select(x => x.Id).ToArray();
-            Cache.StreamClaim(_doneStreamName, ConsumerGroupName, ConsumerName, _expiryTimeMilliSeconds,
-                idsForCurrentMessages);
+            //There is no need to reclaim pending messages or claim messages from current StreamReadGroup request
+            //RedisValue[] idsForCurrentMessages = currentMessages.Select(x => x.Id).ToArray();
+
+            //Cache.StreamClaim(_doneStreamName, ConsumerGroupName, ConsumerName, _expiryTimeMilliSeconds,
+            //    idsForCurrentMessages);
+
+            //Do not create work if cancelation is pending
+            if (DoneBackgroundWorker.CancellationPending)
+            {
+                e.Cancel = true;
+                return;
+            }
 
             var messages = new List<RedisMessage>();
-            log.Debug("Listing all current workingMessages:");
-            foreach (var mess in messages)
-                log.Debug(
-                    $"(REDIS)ID: {mess.RedisMessageId}  TUID(REDISKEY): {mess.TransactionID} VALUE: {mess.Content}");
+            //Does nothing
+            //log.Debug("Listing all current workingMessages:");
+            //foreach (var mess in messages)
+            //    log.Debug(
+            //        $"(REDIS)ID: {mess.RedisMessageId}  TUID(REDISKEY): {mess.TransactionID} VALUE: {mess.Content}");
             log.Debug("Listing all added workingMessages:");
+
+            
+            
             foreach (var message in currentMessages)
             {
                 log.Debug(
@@ -568,6 +600,7 @@ namespace Sftp2RedisBridge.Pipeline
 
                 messages.Add(new RedisMessage(message.Values[0].Name, message.Values[0].Value, message.Id));
             }
+           
 
             e.Result = messages;
         }
@@ -579,14 +612,27 @@ namespace Sftp2RedisBridge.Pipeline
             {
                 try
                 {
-                    Initialize();
-                    log.Debug("Listen ErrorStream Idle: " + _pollingIdleTimeMilliSeconds);
-                    Thread.Sleep(_pollingIdleTimeMilliSeconds);
+                    //Check always before sleep and after longer tasks
                     if (DoneBackgroundWorker.CancellationPending)
                     {
                         e.Cancel = true;
                         return;
                     }
+
+                    //Sleep before initialze to connection sort itself out 
+                    log.Debug("Listen ErrorStream Idle: " + _pollingIdleTimeMilliSeconds);
+                    Thread.Sleep(_pollingIdleTimeMilliSeconds);
+
+                    
+                    if (DoneBackgroundWorker.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return;
+
+                    }
+                    Initialize();
+                    
+                    
 
                     log.Debug("Looking for pending messages in " + _errorStreamName);
                     StreamPendingMessageInfo[] pending = null;
@@ -624,16 +670,16 @@ namespace Sftp2RedisBridge.Pipeline
                         currentMessages = Cache.StreamReadGroup(_errorStreamName, ConsumerGroupName, ConsumerName);
 
 
+                    //Just consume in next loop
+                    //if (currentMessages.Any())
+                    //{
+                    //    log.Debug("CurrentMessages.Length: " + currentMessages.Length);
+                    //    var additionalUnclaimedEntries =
+                    //        Cache.StreamReadGroup(_errorStreamName, ConsumerGroupName, ConsumerName);
 
-                    if (currentMessages.Any())
-                    {
-                        log.Debug("CurrentMessages.Length: " + currentMessages.Length);
-                        var additionalUnclaimedEntries =
-                            Cache.StreamReadGroup(_errorStreamName, ConsumerGroupName, ConsumerName);
-
-                        _ = currentMessages.Concat(additionalUnclaimedEntries);
-                        log.Debug("CurrentMessages.Length: " + currentMessages.Length);
-                    }
+                    //    _ = currentMessages.Concat(additionalUnclaimedEntries);
+                    //    log.Debug("CurrentMessages.Length: " + currentMessages.Length);
+                    //}
                 }
                 catch (Exception exception)
                 {
@@ -643,10 +689,17 @@ namespace Sftp2RedisBridge.Pipeline
                 
             } while (currentMessages.Length <= 0);
 
-            RedisValue[] idsForCurrentMessages = currentMessages.Select(x => x.Id).ToArray();
-            Cache.StreamClaim(_errorStreamName, ConsumerGroupName, ConsumerName, _expiryTimeMilliSeconds,
-                idsForCurrentMessages);
+            //No need to reclaom
+            //RedisValue[] idsForCurrentMessages = currentMessages.Select(x => x.Id).ToArray();
+            //Cache.StreamClaim(_errorStreamName, ConsumerGroupName, ConsumerName, _expiryTimeMilliSeconds,
+            //    idsForCurrentMessages);
 
+            //Do not create work if cancelation pending
+            if(ErrorBackgroundWorker.CancellationPending)
+            {
+                e.Cancel=true;
+                return;
+            }
             var messages = new List<RedisMessage>();
 
             foreach (var message in currentMessages)
