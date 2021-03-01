@@ -86,13 +86,31 @@ namespace Sftp2RedisBridge.Pipeline
         
         }
 
+        public bool IsConnected
+        {
+            get
+            {
+                try
+                {
+                    if (Cache?.IsConnected("any") ?? false)
+                    {
+                        return true;
+                    }
+                }
+                catch { }
+
+                return false;
+            }
+        }
+
         public bool Initialize()
         {
             try
             {
                 //Only connect and try to recreate ConsumerGroup if has been disconnected or first connect
                 //handling not initialize _lazyConnection reference. Though IsConnected should work always
-                if (Cache?.IsConnected("any")??false)
+                
+                if (IsConnected)
                 {
                     return true;
                 }
@@ -511,7 +529,10 @@ namespace Sftp2RedisBridge.Pipeline
                     log.Debug("Listen DoneStream Idle: " + _pollingIdleTimeMilliSeconds);
                     Thread.Sleep(_pollingIdleTimeMilliSeconds);
 
-                    Initialize();
+                    if(!Initialize())
+                    {
+                        continue;
+                    }
                     
 
                     if (DoneBackgroundWorker.CancellationPending)
@@ -630,9 +651,13 @@ namespace Sftp2RedisBridge.Pipeline
                         return;
 
                     }
-                    Initialize();
-                    
-                    
+
+                    if (!Initialize())
+                    {
+                        continue;
+                    }
+
+
 
                     log.Debug("Looking for pending messages in " + _errorStreamName);
                     StreamPendingMessageInfo[] pending = null;
