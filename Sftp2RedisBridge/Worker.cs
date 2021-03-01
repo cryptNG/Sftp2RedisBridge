@@ -71,7 +71,7 @@ namespace Sftp2RedisBridge
         }
 
 
-        private int getReconnectDelayValue()=>Convert.ToInt32(_configuration["General:ReconnectDelaySeconds"]??"1000") * 1000; //TODO do it on every convert.to
+        private int getReconnectDelayValue()=>Convert.ToInt32(_configuration["General:ReconnectDelaySeconds"]??"10") * 1000; //TODO do it on every convert.to
         
 
         public void SftpClientListen(object sender, DoWorkEventArgs e)
