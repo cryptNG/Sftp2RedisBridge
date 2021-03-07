@@ -291,8 +291,7 @@ namespace Sftp2RedisBridge.Pipeline
                 var jsonRemoteFileList = Get(RemoteFilesCache);
                 var cachedObjects = jsonRemoteFileList.FromJson<List<RemoteFile>>();
                 var objectToRemove = cachedObjects.First(x =>
-                    x.TransactionUid == memoryFile.TransactionUid && x.Name == memoryFile.Name &&
-                    x.Data.SequenceEqual(memoryFile.Data));
+                    x.TransactionUid == memoryFile.TransactionUid && x.Name == memoryFile.Name);
                 cachedObjects.Remove(objectToRemove);
                 var redisTransaction = Cache.CreateTransaction();
                 redisTransaction.KeyDeleteAsync(RemoteFilesCache);
