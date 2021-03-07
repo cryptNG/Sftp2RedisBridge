@@ -102,7 +102,8 @@ namespace Sftp2RedisBridge
                         if (!_redisPipelineManager.Contains($"Process:{currFile.TransactionUid}:Filename"))
                         {log.Info("File " + currFile.FullName + " being added to KeyValueStore with TUID " + currFile.TransactionUid);
                            _redisPipelineManager.Set($"Process:{currFile.TransactionUid}:Filename", currFile.Name);
-                           _redisPipelineManager.Set($"Process:{currFile.TransactionUid}:File", MakeBase64Chunky(currFile.Data));
+                           byte[] fileData = _remoteDirectory.GetFileContent(currFile.FullName);
+                           _redisPipelineManager.Set($"Process:{currFile.TransactionUid}:File", MakeBase64Chunky(fileData));
                            _redisPipelineManager.WriteToProcessStream(currFile.TransactionUid);
 
                         }

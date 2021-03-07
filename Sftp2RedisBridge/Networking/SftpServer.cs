@@ -132,6 +132,23 @@ namespace Sftp2RedisBridge.Networking
 
         }
 
+        public byte[] DownloadFileContent(string fileName)
+        {
+
+            if (!_client.IsConnected)
+            {
+                log.Error("CLIENT NOT CONNECTED TO RECEIVE " + fileName);
+            }
+            
+            using (var downloadStream = new MemoryStream())
+            {
+                _client.DownloadFile(fileName, downloadStream);
+                return downloadStream.ToArray();
+            }
+
+
+        }
+
 
         public List<string> ListDirectory(string dirName)
         {

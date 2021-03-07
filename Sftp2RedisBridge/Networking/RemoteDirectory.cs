@@ -69,6 +69,11 @@ namespace Sftp2RedisBridge.Networking
             return _server.DownloadFile(fileName);
         }
 
+        public byte[] GetFileContent(string fileName)
+        {
+            return _server.DownloadFileContent(fileName);
+        }
+
         public bool DeleteFile(RemoteFile remoteFile)
         {
             _server.DeleteFile(remoteFile.FullName);

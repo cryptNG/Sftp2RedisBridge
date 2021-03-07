@@ -13,5 +13,6 @@ namespace Sftp2RedisBridge.Contracts
         void Disconnect();
         void MoveFile(RemoteFile remoteFile, string toDirectory);
         RemoteFile GetFile(string fileName);
+        byte[] GetFileContent(string fileName);
     }
 }

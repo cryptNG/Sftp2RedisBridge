@@ -299,17 +299,15 @@ namespace SftpHandler_Tests
             return builder.ToString();
         }
 
-        private RemoteFile downloadFile(SftpClient client,string fileName)
+        private byte[] downloadFile(SftpClient client,string fileName)
         {
             client.Connect();
             try
             {
-                RemoteFile remoteFile;
                 using (var downloadStream = new MemoryStream())
                 {
                     client.DownloadFile(fileName, downloadStream);
-                    remoteFile = new RemoteFile(client.Get(fileName), downloadStream.ToArray());
-                    return remoteFile;
+                    return downloadStream.ToArray();
                 }
 
             }
@@ -461,9 +459,9 @@ namespace SftpHandler_Tests
                 foreach (string errorFileName in errorFileNames)
                 {
                     Assert.Contains(errorFileName,errorDirectoryFiles);
-                    RemoteFile errorFile = downloadFile(client,errorFileName);
-                    Assert.True(errorFile.Data.SequenceEqual(errorFileContent));
-                    string plainText = System.Text.Encoding.UTF8.GetString(errorFile.Data);
+                    byte[] errorFile = downloadFile(client,errorFileName);
+                    Assert.True(errorFile.SequenceEqual(errorFileContent));
+                    string plainText = System.Text.Encoding.UTF8.GetString(errorFile);
                     Assert.AreEqual(plainTextFileContent, plainText);
                 }
             }

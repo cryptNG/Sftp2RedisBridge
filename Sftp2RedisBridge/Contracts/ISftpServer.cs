@@ -19,6 +19,7 @@ namespace Sftp2RedisBridge.Contracts
         void Disconnect();
         bool DeleteFile(string filePath);
         RemoteFile DownloadFile(string fileName);
+        byte[] DownloadFileContent(string fileName);
         void Kill();
         List<string> ListDirectory(string dirName);
     }
