@@ -1,0 +1,19 @@
+#See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
+
+FROM mcr.microsoft.com/dotnet/runtime:5.0.4-windowsservercore-ltsc2019 AS base
+WORKDIR /app
+FROM mcr.microsoft.com/dotnet/sdk:5.0.201-windowsservercore-ltsc2019 AS build
+WORKDIR /src
+COPY ["Sftp2RedisBridge/Sftp2RedisBridge.csproj", "Sftp2RedisBridge/"]
+RUN dotnet restore "Sftp2RedisBridge/Sftp2RedisBridge.csproj"
+COPY . .
+WORKDIR "/src/Sftp2RedisBridge"
+RUN dotnet build "Sftp2RedisBridge.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "Sftp2RedisBridge.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "Sftp2RedisBridge.dll"]
