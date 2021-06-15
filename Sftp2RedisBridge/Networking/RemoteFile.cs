@@ -19,5 +19,18 @@ namespace Sftp2RedisBridge.Networking
         public string TransactionUid { get; set; }
         public string FullName { get; set; }
         public string Name { get; set; }
+
+        public override bool Equals(Object obj)
+        {
+            if ((obj == null) || !this.GetType().Equals(obj.GetType()))
+            {
+                return false;
+            }
+            else
+            {
+                RemoteFile rf = (RemoteFile)obj;
+                return (FullName == rf.FullName) && (TransactionUid == rf.TransactionUid);
+            }
+        }
     }
 }
