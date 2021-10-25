@@ -1,4 +1,8 @@
 # File2EventBridge
+
+## find us on docker-hub
+https://hub.docker.com/repository/docker/cryptng/sftp2redisbridge
+
 ## building bridges for the dev world
 
 *File2EventBridge* and by extension the project **Sftp2RedisBridge** are a system that provides a simple, predefined and easily configurable/adjustable way to grab files (currently from an _ftp/sftp server in Sftp2RedisBridge_) and ingest found content into different consuming systems
