@@ -46,7 +46,7 @@ namespace Sftp2RedisBridge.Networking
             else
             {
                 RemoteFile rf = (RemoteFile)obj;
-                return (FullName == rf.FullName) && (TransactionUid == rf.TransactionUid);
+                return (FullName == rf.FullName);
             }
         }
     }
