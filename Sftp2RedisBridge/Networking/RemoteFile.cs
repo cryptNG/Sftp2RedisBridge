@@ -49,5 +49,10 @@ namespace Sftp2RedisBridge.Networking
                 return (FullName == rf.FullName);
             }
         }
+
+        public override int GetHashCode()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

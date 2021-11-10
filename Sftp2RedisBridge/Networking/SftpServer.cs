@@ -214,11 +214,33 @@ namespace Sftp2RedisBridge.Networking
                 log.Error("Current remote directory: " + _client.WorkingDirectory);
                 log.Error("Tried to change to: " + Configuration.SftpPath);
                 log.Error("Exception", spathEx);
+                log.Error("--------------------------");
+                log.Error("DISCONNECTING FROM SERVER");
+                log.Error("--------------------------");
+                try
+                {
+                    _client.Disconnect();
+                }
+                catch (Exception eDisconnect)
+                {
+                    log.Error("Exception", eDisconnect);
+                }
             }
             catch (Exception ex)
             {
                 log.Error("An exception occurred while trying to connect or change the sftp directory", ex);
                 log.Error("SFTPServer might not be available");
+                log.Error("--------------------------");
+                log.Error("DISCONNECTING FROM SERVER");
+                log.Error("--------------------------");
+                try
+                {
+                    _client.Disconnect();
+                }
+                catch (Exception eDisconnect)
+                {
+                    log.Error("Exception", eDisconnect);
+                }
             }
         }
 

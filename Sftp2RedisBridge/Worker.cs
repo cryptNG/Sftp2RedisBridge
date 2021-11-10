@@ -70,24 +70,27 @@ namespace Sftp2RedisBridge
             return _redisPipelineManager.Initialize();
         }
 
-
-        private int getReconnectDelayValue()=>Convert.ToInt32(_configuration["General:ReconnectDelaySeconds"]??"10") * 1000; //TODO do it on every convert.to
+        /// <summary>
+        /// User enters SECONDS (because people are better in calculating with seconds than microseconds)
+        /// </summary>
+        /// <returns>User configured delay converted to milliseconds</returns>
+        private int getReconnectDelayValueMilliSeconds()=>Convert.ToInt32(_configuration["General:ReconnectDelaySeconds"]??"10") * 1000; //TODO do it on every convert.to
         
 
         public void SftpClientListen(object sender, DoWorkEventArgs e)
         {
 
-            int reconnectDelayDefault = getReconnectDelayValue();
+            int reconnectDelayDefault = getReconnectDelayValueMilliSeconds();
 
-            int retryTimeMs = reconnectDelayDefault;
+            int retryTimeMS = reconnectDelayDefault;
             while (!_sftpBackgroundWorker.CancellationPending)
             {
                 if (_remoteDirectory.Connect() == false)
                 {
-                
-                        retryTimeMs = retryTimeMs + reconnectDelayDefault / (retryTimeMs / reconnectDelayDefault) ^ 2;
-                    
-                    Thread.Sleep(retryTimeMs);
+                        retryTimeMS = retryTimeMS + reconnectDelayDefault / (retryTimeMS / reconnectDelayDefault) ^ 2;
+
+                    log.Info($"Connecting failed, will retry after {retryTimeMS} milliseconds");
+                    Thread.Sleep(retryTimeMS);
                     continue;
                 }
 
