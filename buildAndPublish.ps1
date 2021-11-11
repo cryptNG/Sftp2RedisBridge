@@ -1,4 +1,4 @@
-$version="1.4"
+$version="1.4.2"
 
 Write-Host "Login before deployment"
 docker login -u cryptng
